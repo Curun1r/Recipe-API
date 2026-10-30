@@ -75,6 +75,11 @@
     <p class="empty">No recipes yet.</p>
   {% endif %}
 
+  <nav aria-label="Recipe pages">
+    {% if page > 1 %}<a href="/?page={{ page - 1 }}">Previous page</a>{% endif %}
+    {% if has_next %}<a href="/?page={{ page + 1 }}">Next page</a>{% endif %}
+  </nav>
+
   <footer>
     Try it in <a href="/graphql">GraphiQL</a>:
     <code>{ recipes { title author { name } comments { text } } }</code>

@@ -32,6 +32,9 @@ CommentResult = Annotated[CommentPayload | CommentError, strawberry.union("Comme
 class CommentMutations:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def add_comment(self, recipe_id: strawberry.ID, text: str, info: Info) -> CommentResult:
+        text = text.strip()
+        if not 1 <= len(text) <= 2000:
+            return CommentError(message="Comment must contain 1 to 2000 characters")
         try:
             oid = PydanticObjectId(recipe_id)
         except (InvalidId, ValueError, TypeError):

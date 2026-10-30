@@ -4,15 +4,17 @@ from bson.errors import InvalidId
 
 from app.models.recipe import Recipe
 from app.schema.types.recipe import RecipeType
+from app.validation import DEFAULT_PAGE_SIZE, page_bounds
 
 
 @strawberry.type
 class RecipeQueries:
     @strawberry.field
-    async def recipes(self) -> list[RecipeType]:
+    async def recipes(self, limit: int = DEFAULT_PAGE_SIZE, offset: int = 0) -> list[RecipeType]:
+        page_bounds(limit, offset)
         # No fetch_links: authors are resolved lazily and batched by the
         # DataLoader, only if the query actually asks for them.
-        documents = await Recipe.find_all().to_list()
+        documents = await Recipe.find_all().sort("_id").skip(offset).limit(limit).to_list()
         return [RecipeType.from_model(doc) for doc in documents]
 
     @strawberry.field

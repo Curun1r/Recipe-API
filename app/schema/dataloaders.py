@@ -5,10 +5,12 @@ from beanie.operators import In
 from strawberry.dataloader import DataLoader
 
 from app.models.comment import Comment
+from app.models.recipe import Recipe
 from app.models.user import User
 
 UserLoader = DataLoader[PydanticObjectId, User | None]
-CommentsByRecipeLoader = DataLoader[PydanticObjectId, list[Comment]]
+CommentPageKey = tuple[PydanticObjectId, int, int]
+CommentsByRecipeLoader = DataLoader[CommentPageKey, list[Comment]]
 
 
 async def load_users(keys: list[PydanticObjectId]) -> list[User | None]:
@@ -26,21 +28,36 @@ async def load_users(keys: list[PydanticObjectId]) -> list[User | None]:
     return [by_id.get(key) for key in keys]
 
 
-async def load_comments_by_recipe(
-    keys: list[PydanticObjectId],
-) -> list[list[Comment]]:
-    """One-to-many batch: one indexed query for N recipes.
-
-    Unlike load_users this returns a list *per key*, so a recipe with no
-    comments must map to [] — dropping it would shift every later key
-    onto the wrong recipe's comments.
-    """
-    comments = await Comment.find(In(Comment.recipe_id, keys)).to_list()
-
-    grouped: dict[PydanticObjectId, list[Comment]] = {key: [] for key in keys}
-    for comment in comments:
-        grouped[comment.recipe_id].append(comment)
-    return [grouped[key] for key in keys]
+async def load_comments_by_recipe(keys: list[CommentPageKey]) -> list[list[Comment]]:
+    """Batch equal page windows, limiting each recipe inside MongoDB's lookup."""
+    pages: dict[CommentPageKey, list[Comment]] = {}
+    windows = {(limit, offset) for _, limit, offset in keys}
+    for limit, offset in windows:
+        ids = [oid for oid, size, start in keys if (size, start) == (limit, offset)]
+        rows = await Recipe.aggregate(
+            [
+                {"$match": {"_id": {"$in": ids}}},
+                {
+                    "$lookup": {
+                        "from": "comments",
+                        "let": {"recipe_id": "$_id"},
+                        "pipeline": [
+                            {"$match": {"$expr": {"$eq": ["$recipe_id", "$$recipe_id"]}}},
+                            {"$sort": {"_id": 1}},
+                            {"$skip": offset},
+                            {"$limit": limit},
+                        ],
+                        "as": "comments",
+                    }
+                },
+                {"$project": {"_id": 1, "comments": 1}},
+            ]
+        ).to_list()
+        for row in rows:
+            pages[(row["_id"], limit, offset)] = [
+                Comment.model_validate(comment) for comment in row["comments"]
+            ]
+    return [pages.get(key, []) for key in keys]
 
 
 def create_dataloaders() -> UserLoader:

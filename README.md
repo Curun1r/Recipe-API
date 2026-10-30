@@ -1,6 +1,8 @@
 # Recipe API
 
-![CI](https://github.com/Curun1r/Recipe_aggregator/actions/workflows/ci.yml/badge.svg)
+Version **1.0.0**.
+
+![CI](https://github.com/Curun1r/Recipe-API/actions/workflows/ci.yml/badge.svg)
 
 A GraphQL API for recipes, comments and favorites — a learning project built to pick up
 Flask, GraphQL (Strawberry) and MongoDB (Beanie) as a deliberate contrast to
@@ -16,7 +18,7 @@ app (`/`) is a plain read-only Flask + Jinja view, not a UI layer.
 - **Flask** (app factory), served as **ASGI** via `asgiref.wsgi.WsgiToAsgi` + **Hypercorn**
 - **Strawberry GraphQL** (code-first schema)
 - **MongoDB** via **Beanie** (ODM) on top of **PyMongo Async**
-- **JWT** auth (PyJWT + bcrypt), hand-rolled — no framework auth layer
+- **JWT** auth (PyJWT + Werkzeug scrypt; legacy bcrypt verification), hand-rolled — no framework auth layer
 - **pytest** + **httpx** (ASGI transport) for tests, **ruff** + **mypy** for lint/types
 - **Docker Compose** for local Mongo + app; **GitHub Actions** CI
 
@@ -26,10 +28,10 @@ app (`/`) is a plain read-only Flask + Jinja view, not a UI layer.
 
 | Field | Auth | Description |
 |---|---|---|
-| `recipes` | — | All recipes |
+| `recipes(limit: 20, offset: 0)` | — | A bounded recipe page |
 | `recipe(id)` | — | Single recipe, or `null` |
 | `me` | — | Current user, or `null` if not logged in |
-| `myFavorites` | ✓ | Recipes the current user has favorited |
+| `myFavorites(limit: 20, offset: 0)` | ✓ | A page of the current user’s favorites |
 
 **Mutations**
 
@@ -46,6 +48,35 @@ Auth (✓) is enforced via a `strawberry.permission.BasePermission` class
 response. Business-level failures ("email already registered", "recipe not
 found", "wrong password") are modeled as GraphQL union types instead, so the
 client always gets a typed result rather than parsing error strings.
+
+## Input, privacy and request limits
+
+- Public recipe/comment authors expose `id` and `name`. Email is available only on the
+  caller's `me` result and the account returned by registration/login.
+- New passwords must contain 12–128 characters and cannot be blank. scrypt verifies
+  the entire password, including characters beyond bcrypt’s former 72-byte boundary.
+  Existing bcrypt hashes remain readable for passwords up to 72 UTF-8 bytes; longer
+  legacy passwords are rejected rather than truncated.
+- Recipe text is trimmed and bounded. Recipes require 1–50 ingredients with finite,
+  positive quantities and 1–50 consecutive preparation steps starting at 1. Tags
+  are unique (up to 20). Comments require 1–2000 characters.
+- Recipes/favorites accept `limit` (1–50, default 20) and `offset` (0–10000), ordered
+  by id. Nested `comments(limit: 10, offset: 0)` has a maximum page size of 20 and
+  bounds each recipe’s results inside MongoDB. The HTML page has previous/next links.
+- Request bodies are limited to 64 KiB; GraphQL documents to 2000 tokens, 10 aliases
+  and depth 12. Standard GraphiQL introspection remains available.
+- Fixed one-minute windows allow 120 HTTP requests per client IP. Registration and
+  login share budgets of 10 attempts/IP, 20/account and 5/IP/account, including
+  attempts in aliased mutations. HTTP limits return 429 with `Retry-After`; GraphQL
+  authentication limits return `RATE_LIMITED` with `retryAfter` in error extensions.
+- Production counters use atomic MongoDB updates and a TTL index in `api_rate_limits`,
+  shared across processes. Database failure does not fall back to unprotected access.
+  The app factory's database-disabled test mode uses isolated memory counters.
+- By default only the peer IP is trusted. Behind a reverse proxy, set
+  `TRUSTED_PROXY_HOPS` to the verified number of trusted proxies (0 by default).
+  Enable it only when that proxy sanitizes forwarded headers and direct access to
+  the application is restricted. Arbitrary client-supplied forwarding headers are
+  otherwise ignored.
 
 ## Running
 
@@ -95,7 +126,7 @@ Register and grab a token:
 
 ```graphql
 mutation {
-  register(email: "you@example.com", password: "s3cret!", name: "You") {
+  register(email: "you@example.com", password: "correct-horse-battery", name: "You") {
     __typename
     ... on AuthPayload { token user { id name } }
     ... on AuthError { message }
@@ -122,8 +153,8 @@ mutation {
 ```
 
 Browse recipes with nested comments and authors, resolved through a
-per-request `DataLoader` so this stays at one extra query regardless of how
-many recipes or comments come back:
+per-request `DataLoader` so this stays at batched queries rather than one query per recipe or author;
+list results are paginated:
 
 ```graphql
 query {
@@ -153,8 +184,7 @@ created and dropped per test module) rather than mocking the driver —
 including a couple that go through the actual ASGI stack end-to-end
 (`tests/test_views.py`), not just `schema.execute()` in-process.
 
-`requirements.txt` holds runtime dependencies only — what actually ships in
-the Docker image. Lint, type-checking and test tooling live in
+`requirements.txt` defines the dependencies installed in the Docker image. Lint, type-checking and test tooling live in
 `requirements-dev.txt`.
 
 ## A few deliberate architectural choices

@@ -13,6 +13,7 @@ from app.models.recipe import Ingredient, Recipe, Step
 from app.models.user import User
 from app.schema import schema
 from app.schema.dataloaders import (
+    CommentPageKey,
     create_comments_loader,
     create_dataloaders,
     load_comments_by_recipe,
@@ -26,7 +27,7 @@ ADD_COMMENT = """
 mutation AddComment($recipeId: ID!, $text: String!) {
   addComment(recipeId: $recipeId, text: $text) {
     __typename
-    ... on CommentPayload { comment { id text author { id email name } } }
+    ... on CommentPayload { comment { id text author { id name } } }
     ... on CommentError { message }
   }
 }
@@ -101,7 +102,6 @@ async def test_add_comment_succeeds_for_authenticated_user(test_db: None) -> Non
     # Author comes from the context, not from the arguments.
     assert payload["comment"]["author"] == {
         "id": str(author.id),
-        "email": "yehor@example.com",
         "name": "Yehor",
     }
 
@@ -160,7 +160,7 @@ async def test_comments_are_grouped_per_recipe(test_db: None) -> None:
     # Count how often the batch function runs: 3 recipes must cost 1 call.
     calls = 0
 
-    async def counting_loader(keys: list[PydanticObjectId]) -> list[list[Comment]]:
+    async def counting_loader(keys: list[CommentPageKey]) -> list[list[Comment]]:
         nonlocal calls
         calls += 1
         return await load_comments_by_recipe(keys)

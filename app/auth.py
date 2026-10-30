@@ -6,23 +6,34 @@ import jwt
 from beanie import PydanticObjectId
 from bson.errors import InvalidId
 from flask import Request
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from app.models.user import User
+from app.validation import validate_password
 
 _ALGORITHM = "HS256"
 _TOKEN_TTL = timedelta(hours=24)
 
 
 def hash_password(password: str) -> str:
-    # bcrypt directly (passlib is unmaintained and broken with bcrypt >= 5).
-    # gensalt() embeds the salt into the hash — unlike Django's
-    # PASSWORD_HASHERS there is no framework layer here.
-    # bcrypt only reads the first 72 bytes; 5.x raises instead of truncating.
-    return bcrypt.hashpw(password.encode()[:72], bcrypt.gensalt()).decode()
+    validate_password(password)
+    return generate_password_hash(password, method="scrypt")
 
 
 def verify_password(password: str, password_hash: str) -> bool:
-    return bcrypt.checkpw(password.encode()[:72], password_hash.encode())
+    if not password or len(password) > 128:
+        return False
+    try:
+        if password_hash.startswith(("$2a$", "$2b$", "$2y$")):
+            # Read old bcrypt hashes without accepting ambiguous truncated passwords.
+            if len(password.encode()) > 72:
+                return False
+            return bcrypt.checkpw(password.encode(), password_hash.encode())
+        if not password_hash.startswith("scrypt:"):
+            return False
+        return check_password_hash(password_hash, password)
+    except (ValueError, TypeError):
+        return False
 
 
 def create_access_token(user_id: str) -> str:

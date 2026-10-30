@@ -25,3 +25,7 @@ async def init_db(mongo_uri: str | None = None) -> None:
         database=client.get_default_database(),
         document_models=[Recipe, User, Comment],
     )
+
+    await client.get_default_database()["api_rate_limits"].create_index(
+        "expires_at", expireAfterSeconds=0
+    )

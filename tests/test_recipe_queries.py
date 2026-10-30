@@ -25,7 +25,7 @@ query {
     tags
     ingredients { name amount unit }
     steps { order text }
-    author { id email name }
+    author { id name }
   }
 }
 """
@@ -35,7 +35,7 @@ query Recipe($id: ID!) {
   recipe(id: $id) {
     id
     title
-    author { id email name }
+    author { id name }
   }
 }
 """
@@ -48,7 +48,7 @@ mutation CreateRecipe($input: CreateRecipeInput!) {
     tags
     ingredients { name amount unit }
     steps { order text }
-    author { id email name }
+    author { id name }
   }
 }
 """
@@ -112,7 +112,6 @@ async def test_recipes_query_returns_recipe_with_author(test_db: None) -> None:
     # Author resolved through the DataLoader, not stored on the recipe.
     assert recipes[0]["author"] == {
         "id": str(author.id),
-        "email": "yehor@example.com",
         "name": "Yehor",
     }
 
@@ -182,7 +181,6 @@ async def test_create_recipe_with_current_user(test_db: None) -> None:
     assert created["tags"] == ["bread", "italian"]
     assert created["author"] == {
         "id": str(author.id),
-        "email": "yehor@example.com",
         "name": "Yehor",
     }
 

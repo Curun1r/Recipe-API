@@ -1,4 +1,5 @@
 import strawberry
+from strawberry.extensions import MaxAliasesLimiter, MaxTokensLimiter, QueryDepthLimiter
 
 from app.schema.mutations import (
     AuthMutations,
@@ -21,4 +22,12 @@ class Mutation(AuthMutations, RecipeMutations, CommentMutations, FavoriteMutatio
     """Root mutation, composed from per-domain mutation classes."""
 
 
-schema = strawberry.Schema(query=Query, mutation=Mutation)
+schema = strawberry.Schema(
+    query=Query,
+    mutation=Mutation,
+    extensions=[
+        lambda: MaxAliasesLimiter(max_alias_count=10),
+        lambda: MaxTokensLimiter(max_token_count=2000),
+        lambda: QueryDepthLimiter(max_depth=12),
+    ],
+)

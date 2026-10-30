@@ -10,6 +10,7 @@ from app.models.recipe import Ingredient, Recipe, Step
 from app.models.user import User
 from app.schema.types.comment import CommentType
 from app.schema.types.user import UserType
+from app.validation import DEFAULT_COMMENT_PAGE_SIZE, MAX_COMMENT_PAGE_SIZE, page_bounds
 
 
 @strawberry.type
@@ -59,10 +60,13 @@ class RecipeType:
         return UserType.from_model(user) if user is not None else None
 
     @strawberry.field
-    async def comments(self, info: Info) -> list[CommentType]:
+    async def comments(
+        self, info: Info, limit: int = DEFAULT_COMMENT_PAGE_SIZE, offset: int = 0
+    ) -> list[CommentType]:
         """One grouped query for the whole page of recipes, not one per recipe."""
+        page_bounds(limit, offset, MAX_COMMENT_PAGE_SIZE)
         loader = info.context["comments_loader"]
-        comments: list[Comment] = await loader.load(self._id_oid)
+        comments: list[Comment] = await loader.load((self._id_oid, limit, offset))
         return [CommentType.from_model(comment) for comment in comments]
 
     @classmethod

@@ -1,9 +1,10 @@
 flask[async]
 hypercorn
-strawberry-graphql[flask]
+strawberry-graphql[flask]>=0.321.0
 beanie>=2
 pydantic[email]
 bcrypt
 pyjwt
 
 pytest
+Werkzeug>=3.1

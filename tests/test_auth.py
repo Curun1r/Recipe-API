@@ -50,7 +50,7 @@ async def test_db() -> AsyncIterator[None]:
 async def _register(email: str = "yehor@example.com") -> dict[str, Any]:
     result = await schema.execute(
         REGISTER,
-        variable_values={"email": email, "password": "s3cret-pw", "name": "Yehor"},
+        variable_values={"email": email, "password": "correct-horse-battery", "name": "Yehor"},
     )
     assert result.errors is None  # modeled errors never become GraphQL errors
     assert result.data is not None
@@ -64,7 +64,7 @@ async def test_register_then_login_returns_valid_token(test_db: None) -> None:
 
     result = await schema.execute(
         LOGIN,
-        variable_values={"email": "yehor@example.com", "password": "s3cret-pw"},
+        variable_values={"email": "yehor@example.com", "password": "correct-horse-battery"},
     )
     assert result.errors is None
     assert result.data is not None

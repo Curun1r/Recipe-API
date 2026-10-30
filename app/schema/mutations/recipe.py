@@ -1,10 +1,13 @@
 import strawberry
+from graphql import GraphQLError
+from pydantic import ValidationError
 from strawberry.types import Info
 
 from app.models.recipe import Ingredient, Recipe, Step
 from app.models.user import User
 from app.schema.permissions import IsAuthenticated
 from app.schema.types.recipe import RecipeType
+from app.validation import RecipeData
 
 
 @strawberry.input
@@ -37,14 +40,28 @@ class RecipeMutations:
         # client could publish recipes as somebody else.
         current_user: User = info.context["current_user"]
 
+        try:
+            data = RecipeData.model_validate(strawberry.asdict(input))
+        except ValidationError as exc:
+            raise GraphQLError(
+                "Invalid recipe input",
+                extensions={
+                    "code": "BAD_USER_INPUT",
+                    "fields": [
+                        {"field": ".".join(map(str, e["loc"])), "message": e["msg"]}
+                        for e in exc.errors(include_input=False, include_url=False)
+                    ],
+                },
+            ) from None
+
         recipe = Recipe(
-            title=input.title,
-            description=input.description,
+            title=data.title,
+            description=data.description,
             ingredients=[
-                Ingredient(name=i.name, amount=i.amount, unit=i.unit) for i in input.ingredients
+                Ingredient(name=i.name, amount=i.amount, unit=i.unit) for i in data.ingredients
             ],
-            steps=[Step(order=s.order, text=s.text) for s in input.steps],
-            tags=list(input.tags),
+            steps=[Step(order=s.order, text=s.text) for s in data.steps],
+            tags=list(data.tags),
             author=current_user,
         )
         await recipe.insert()

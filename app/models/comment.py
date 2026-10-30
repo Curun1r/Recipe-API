@@ -3,6 +3,7 @@ from typing import Annotated
 
 from beanie import Document, Indexed, Link, PydanticObjectId
 from pydantic import Field
+from pymongo import IndexModel
 
 from app.models.user import User
 
@@ -24,3 +25,4 @@ class Comment(Document):
 
     class Settings:
         name = "comments"
+        indexes = [IndexModel([("recipe_id", 1), ("_id", 1)])]
