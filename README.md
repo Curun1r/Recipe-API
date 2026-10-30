@@ -1,8 +1,8 @@
-# Recipe API
+# Recipe Aggregator
 
 ![CI](https://github.com/Curun1r/Recipe_aggregator/actions/workflows/ci.yml/badge.svg)
 
-A GraphQL API for recipes, comments and favorites — a learning project built to pick up
+A GraphQL API for aggregating recipes — a learning project built to pick up
 Flask, GraphQL (Strawberry) and MongoDB (Beanie) as a deliberate contrast to
 a Django + DRF + PostgreSQL background. Where a design decision differs from
 the Django/DRF equivalent, the code comments say so explicitly.
