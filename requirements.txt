@@ -5,3 +5,5 @@ beanie>=2
 pydantic[email]
 bcrypt
 pyjwt
+
+pytest
