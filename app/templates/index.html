@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="uk">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>recipe-aggregator</title>
+  <title>Recipe API</title>
   <style>
     body {
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -53,8 +53,8 @@
   </style>
 </head>
 <body>
-  <h1>Рецепти</h1>
-  <p class="subtitle">Демонстраційна сторінка. Усі дії — через GraphQL API.</p>
+  <h1>Recipe API</h1>
+  <p class="subtitle">A read-only recipe demo. All actions are available through the GraphQL API.</p>
 
   {% if recipes %}
     {% for recipe in recipes %}
@@ -62,8 +62,8 @@
         <h2>{{ recipe.title }}</h2>
         <p class="meta">
           {# after fetch_links=True author is a User document, not a Link #}
-          Автор: {{ recipe.author.name }} ·
-          Інгредієнтів: {{ recipe.ingredients | length }}
+          Author: {{ recipe.author.name }} ·
+          Ingredients: {{ recipe.ingredients | length }}
         </p>
         <p class="description">{{ recipe.description | truncate(150) }}</p>
         {% for tag in recipe.tags %}
@@ -72,11 +72,11 @@
       </article>
     {% endfor %}
   {% else %}
-    <p class="empty">Поки що порожньо — жодного рецепта ще не додано.</p>
+    <p class="empty">No recipes yet.</p>
   {% endif %}
 
   <footer>
-    Спробуй у <a href="/graphql">GraphiQL</a>:
+    Try it in <a href="/graphql">GraphiQL</a>:
     <code>{ recipes { title author { name } comments { text } } }</code>
   </footer>
 </body>
