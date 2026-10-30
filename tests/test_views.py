@@ -85,7 +85,7 @@ async def test_index_shows_friendly_empty_state(client: httpx.AsyncClient) -> No
     response = await client.get("/")
 
     assert response.status_code == 200
-    assert "Поки що порожньо" in response.text
+    assert "No recipes yet." in response.text
     assert "<article" not in response.text
 
 
